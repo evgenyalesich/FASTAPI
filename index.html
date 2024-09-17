@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>ToDo List</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Custom CSS -->
+    <link href="/static/style.css" rel="stylesheet">
+</head>
+<body>
+
+<div class="container task-container">
+    <h1 class="text-center task-header">ToDo List</h1>
+
+    <!-- Форма добавления задач -->
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <input type="text" id="newTask" class="task-input" placeholder="Enter a new task...">
+            <input type="text" id="category" class="task-input" placeholder="Enter category...">
+            <input type="number" id="priority" class="task-input" placeholder="Priority (1-5)">
+            <button class="btn btn-primary btn-block" onclick="addTask()">Add Task</button>
+        </div>
+    </div>
+
+    <!-- Список задач -->
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <ul id="taskList" class="task-list">
+                <!-- Задачи будут добавлены динамически здесь -->
+            </ul>
+        </div>
+    </div>
+</div>
+
+<!-- Bootstrap JS и зависимости -->
+<script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+<script>
+    const taskList = document.getElementById('taskList');
+
+    // Загрузка задач с сервера
+    function loadTasks() {
+        $.ajax({
+            url: "/tasks",
+            type: "GET",
+            success: function (data) {
+                taskList.innerHTML = '';
+                data.forEach(task => addTaskToDOM(task));
+            }
+        });
+    }
+
+    // Добавление новой задачи через AJAX
+    function addTask() {
+        const description = document.getElementById('newTask').value.trim();
+        const category = document.getElementById('category').value.trim();
+        const priority = document.getElementById('priority').value;
+
+        if (description === '' || priority < 1 || priority > 5) {
+            alert('Please provide a valid task description and priority (1-5).');
+            return;
+        }
+
+        $.ajax({
+            url: "/tasks",
+            type: "POST",
+            contentType: "application/json",
+            data: JSON.stringify({ description, category, priority }),
+            success: function (task) {
+                addTaskToDOM(task);
+                document.getElementById('newTask').value = '';
+                document.getElementById('category').value = '';
+                document.getElementById('priority').value = '';
+            }
+        });
+    }
+
+    // Добавление задачи в DOM
+    function addTaskToDOM(task) {
+        const taskItem = document.createElement('li');
+        taskItem.className = 'task-item' + (task.done ? ' completed' : '');
+
+        const taskContent = document.createElement('span');
+        taskContent.textContent = `${task.description} [${task.category || 'No Category'}] (Priority: ${task.priority})`;
+
+        // Галочка выполненной задачи
+        const completedIcon = document.createElement('span');
+        completedIcon.className = 'completed-icon';
+        completedIcon.innerHTML = '✔';  // Галочка
+
+        const completeButton = document.createElement('button');
+        completeButton.className = 'btn btn-success btn-sm';
+        completeButton.textContent = 'Complete';
+        completeButton.onclick = function () {
+            toggleTaskCompletion(task.id, taskItem, completedIcon);
+        };
+
+        const deleteButton = document.createElement('button');
+        deleteButton.className = 'btn btn-delete btn-sm';
+        deleteButton.textContent = 'Delete';
+        deleteButton.onclick = function () {
+            deleteTask(task.id, taskItem);
+        };
+
+        taskItem.appendChild(taskContent);
+        taskItem.appendChild(completedIcon);  // Добавляем галочку к задаче
+        taskItem.appendChild(completeButton);
+        taskItem.appendChild(deleteButton);
+        taskList.appendChild(taskItem);
+    }
+
+    // Переключение выполнения задачи
+    function toggleTaskCompletion(id, taskItem, completedIcon) {
+        const done = !taskItem.classList.contains('completed');
+        $.ajax({
+            url: `/tasks/${id}`,
+            type: "PUT",
+            contentType: "application/json",
+            data: JSON.stringify({ done }),
+            success: function () {
+                taskItem.classList.toggle('completed');
+                if (done) {
+                    completedIcon.style.display = 'inline';  // Показываем галочку
+                } else {
+                    completedIcon.style.display = 'none';    // Убираем галочку
+                }
+            }
+        });
+    }
+
+    // Удаление задачи через AJAX
+    function deleteTask(id, taskItem) {
+        $.ajax({
+            url: `/tasks/${id}`,
+            type: "DELETE",
+            success: function () {
+                taskItem.remove();
+            }
+        });
+    }
+
+    // Первоначальная загрузка задач
+    loadTasks();
+</script>
+
+</body>
+</html>
